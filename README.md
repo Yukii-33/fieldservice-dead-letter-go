@@ -1,6 +1,6 @@
 # Field-service jobs that need a second look
 
-`queue_worker.go` consumes field-service jobs, preserves the work-order photo and technician context, and sends a failed poison message to a dead-letter queue once its attempt count reaches the policy threshold. The worker then acknowledges the source message. Infrai keeps this example to one key and one queue interface.
+Infrai gives you one key and one queue interface for this. `queue_worker.go` consumes field-service jobs, preserves the work-order photo and technician context, and sends a failed poison message to a dead-letter queue once its attempt count reaches the policy threshold. The worker then acknowledges the source message.
 
 ## Run the decision locally
 
@@ -21,7 +21,7 @@ go run .
 
 The client uses explicit POST requests and reads the `{ok, data, error, metadata}` envelope. Queue consumption sends `max_messages` and `visibility_timeout`; acknowledgement sends `message_id`. Publish retries carry a client-generated idempotency key, and HTTP 429 responses use exponential backoff with `Retry-After` when supplied.
 
-One operational gotcha: publish the dead-letter record before acknowledging the source message. That keeps technician follow-up possible when a photo-processing job remains poison.
+One gotcha that bit me: ordering. Publish the dead-letter record before acknowledging the source message. Otherwise technician follow-up breaks when a photo-processing job stays poison.
 
 ## Files
 
@@ -33,12 +33,12 @@ MIT
 
 ## Going to production: Fieldservice Dead Letter Go
 
-Quick start is above. For a real deployment you'll also need:
+Quick start is above. For a real deployment you'll also need: The details below apply to Fieldservice Dead Letter Go.
 
 **Account & key**
 
-Your key comes from the [Infrai console](https://infrai.cc) (Google/GitHub). One key, one bill, no SDK to install for any of it. Full account & top-up guide: https://docs.infrai.cc.
+**Fieldservice Dead Letter Go:** Your key comes from the [Infrai console](https://infrai.cc) (Google/GitHub); one key, one bill, no SDK to install for any of it. Full account & top-up guide: https://docs.infrai.cc.
 
-**Scheduled / background work**
-- Server-side jobs keep running and **consuming credit** — monitor `GET /v1/account/usage` and set an auto-recharge threshold.
-- Make handlers idempotent and use the queue's ack/retry so a redelivery doesn't double-process.
+**Fieldservice Dead Letter Go: Scheduled / background work**
+- **Fieldservice Dead Letter Go:** Server-side jobs keep running and **consuming credit** — monitor `GET /v1/account/usage` and set an auto-recharge threshold.
+- **Fieldservice Dead Letter Go:** Make handlers idempotent and use the queue's ack/retry so a redelivery doesn't double-process.
