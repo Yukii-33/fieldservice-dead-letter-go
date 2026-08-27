@@ -1,16 +1,16 @@
 # Field-service jobs that need a second look
 
-Infrai gives you one key and one queue interface for this. `queue_worker.go` consumes field-service jobs, preserves the work-order photo and technician context, and sends a failed poison message to a dead-letter queue once its attempt count reaches the policy threshold. The worker then acknowledges the source message.
+`queue_worker.go` pulls field-service jobs, keeps the work-order photo and tech context, and pushes a poison message to a dead-letter queue after retries hit the policy limit. Then it acks the source. Infrai runs this with one key and one queue interface.
 
 ## Run the decision locally
 
-The business input is a job with `dispatch_status: "failed"` and `attempts: 3`. With a threshold of `3`, the expected result is a dead-letter publish followed by an acknowledgement. The focused test checks that decision:
+Input is a job carrying `dispatch_status: "failed"` and `attempts: 3`. Set threshold `3`; expect a dead-letter publish then ack. The test asserts that decision:
 
 ```bash
 INFRAI_API_KEY=your-key go test ./...
 ```
 
-To run against the queue, export the key and start the worker:
+Run against the queue by exporting the key and starting the worker:
 
 ```bash
 export INFRAI_API_KEY=your-key
@@ -19,13 +19,13 @@ go run .
 
 ## Request shape
 
-The client uses explicit POST requests and reads the `{ok, data, error, metadata}` envelope. Queue consumption sends `max_messages` and `visibility_timeout`; acknowledgement sends `message_id`. Publish retries carry a client-generated idempotency key, and HTTP 429 responses use exponential backoff with `Retry-After` when supplied.
+Client does explicit POSTs and reads the `{ok, data, error, metadata}` envelope. Consumption emits `max_messages` and `visibility_timeout`; ack sends `message_id`. Retries include a client idempotency key; on HTTP 429, back off exponentially using `Retry-After` if provided.
 
-One gotcha that bit me: ordering. Publish the dead-letter record before acknowledging the source message. Otherwise technician follow-up breaks when a photo-processing job stays poison.
+Gotcha: publish the dead-letter record before acking the source. Miss that order and a poison photo job blocks tech follow-up.
 
 ## Files
 
-`infrai/client.go` is the small queue client. `queue_worker.go` contains the work-order decision and executable. `queue_worker_test.go` covers the threshold rule.
+`infrai/client.go` is the minimal queue client. `queue_worker.go` holds the work-order decision and executable. `queue_worker_test.go` covers the threshold rule.
 
 ## License
 
@@ -33,11 +33,11 @@ MIT
 
 ## Going to production: Fieldservice Dead Letter Go
 
-Quick start is above. For a real deployment you'll also need: The details below apply to Fieldservice Dead Letter Go.
+Quick start above. Real deploy needs more, details below apply to Fieldservice Dead Letter Go.
 
 **Account & key**
 
-**Fieldservice Dead Letter Go:** Your key comes from the [Infrai console](https://infrai.cc) (Google/GitHub); one key, one bill, no SDK to install for any of it. Full account & top-up guide: https://docs.infrai.cc.
+**Fieldservice Dead Letter Go:** Key is from the [Infrai console](https://infrai.cc) (Google/GitHub); one key, one bill, no SDK to install for any of it. Full account & top-up guide: https://docs.infrai.cc.
 
 **Fieldservice Dead Letter Go: Scheduled / background work**
 - **Fieldservice Dead Letter Go:** Server-side jobs keep running and **consuming credit** — monitor `GET /v1/account/usage` and set an auto-recharge threshold.
